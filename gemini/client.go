@@ -12,16 +12,11 @@ import (
 )
 
 type Restaurant struct {
-	Name           string `json:"name"`
-	Upvotes        int    `json:"upvotes"`
-	GoogleMapsLink string `json:"google_maps_link,omitempty"`
-	TabelogLink    string `json:"tabelog_link,omitempty"`
-	Neighborhood   string `json:"neighborhood,omitempty"`
-	RedditSelfLink string `json:"reddit_self_link"`
-}
-
-type RestaurantResponse struct {
-	Restaurants []Restaurant `json:"restaurants"`
+	Name          string `json:"name"`
+	Upvotes       int    `json:"upvotes"`
+	RedditUrl     string `json:"reddit_url"`
+	Neighborhood  string `json:"neighborhood,omitempty"`
+	GoogleMapsUrl string `json:"google_maps_url,omitempty"`
 }
 
 type Client struct {
@@ -30,9 +25,9 @@ type Client struct {
 }
 
 func NewClient(ctx context.Context) (*Client, error) {
-	apiKey := os.Getenv("GOOGLE_API_KEY")
+	apiKey := os.Getenv("GOOGLE_GEMINI_API_KEY")
 	if apiKey == "" {
-		return nil, fmt.Errorf("GOOGLE_API_KEY environment variable is required")
+		return nil, fmt.Errorf("GOOGLE_GEMINI_API_KEY environment variable is required")
 	}
 
 	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
@@ -54,14 +49,12 @@ func NewClient(ctx context.Context) (*Client, error) {
 				Type: genai.TypeArray,
 				Items: &genai.Schema{
 					Type:     genai.TypeObject,
-					Required: []string{"name", "upvotes", "reddit_self_link"},
+					Required: []string{"name", "upvotes", "reddit_url"},
 					Properties: map[string]*genai.Schema{
-						"name":             {Type: genai.TypeString},
-						"upvotes":          {Type: genai.TypeInteger},
-						"google_maps_link": {Type: genai.TypeString},
-						"tabelog_link":     {Type: genai.TypeString},
-						"neighborhood":     {Type: genai.TypeString},
-						"reddit_self_link": {Type: genai.TypeString},
+						"name":         {Type: genai.TypeString},
+						"upvotes":      {Type: genai.TypeInteger},
+						"reddit_url":   {Type: genai.TypeString},
+						"neighborhood": {Type: genai.TypeString},
 					},
 				},
 			},
@@ -78,7 +71,9 @@ func (c *Client) Close() {
 	c.client.Close()
 }
 
-func (c *Client) ToRestaurantData(ctx context.Context, posts []reddit.Post) (*RestaurantResponse, error) {
+// ToRestaurantData processes Reddit posts and returns a slice of restaurants.
+// Each restaurant corresponds to a Reddit post that was identified as a restaurant review.
+func (c *Client) ToRestaurantData(ctx context.Context, posts []reddit.Post) ([]Restaurant, error) {
 	// Convert posts to JSON for the prompt
 	postsJSON, err := json.Marshal(posts)
 	if err != nil {
@@ -104,11 +99,13 @@ Input posts:
 		return nil, fmt.Errorf("no response generated")
 	}
 
-	// Parse the response into our RestaurantResponse struct
-	var result RestaurantResponse
+	// Parse the response into our temporary struct
+	var result struct {
+		Restaurants []Restaurant `json:"restaurants"`
+	}
 	if err := json.Unmarshal([]byte(resp.Candidates[0].Content.Parts[0].(genai.Text)), &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %v", err)
 	}
 
-	return &result, nil
+	return result.Restaurants, nil
 }

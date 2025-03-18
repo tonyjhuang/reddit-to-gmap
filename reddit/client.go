@@ -11,16 +11,16 @@ import (
 )
 
 const (
-	baseURL     = "https://oauth.reddit.com"
-	tokenURL    = "https://www.reddit.com/api/v1/access_token"
-	placeholderClientID = "YOUR_CLIENT_ID"
+	baseURL                 = "https://oauth.reddit.com"
+	tokenURL                = "https://www.reddit.com/api/v1/access_token"
+	placeholderClientID     = "YOUR_CLIENT_ID"
 	placeholderClientSecret = "YOUR_CLIENT_SECRET"
 )
 
 type Client struct {
-	httpClient *http.Client
-	token      string
-	clientID   string
+	httpClient   *http.Client
+	token        string
+	clientID     string
 	clientSecret string
 }
 
@@ -33,10 +33,9 @@ type TokenResponse struct {
 type Post struct {
 	Data struct {
 		Title     string `json:"title"`
-		URL       string `json:"url"`
 		Permalink string `json:"permalink"`
-		Selftext  string `json:"selftext"`  // Description/body of the post
-		Score     int    `json:"score"`     // Number of upvotes
+		Selftext  string `json:"selftext"` // Description/body of the post
+		Score     int    `json:"score"`    // Number of upvotes
 		// Add more fields as needed
 	} `json:"data"`
 }
@@ -56,8 +55,8 @@ func getEnvVar(key, fallback string) string {
 
 func NewClient() *Client {
 	return &Client{
-		httpClient: &http.Client{},
-		clientID: getEnvVar("REDDIT_CLIENT_ID", placeholderClientID),
+		httpClient:   &http.Client{},
+		clientID:     getEnvVar("REDDIT_CLIENT_ID", placeholderClientID),
 		clientSecret: getEnvVar("REDDIT_CLIENT_SECRET", placeholderClientSecret),
 	}
 }
@@ -121,5 +120,10 @@ func (c *Client) GetPosts(subreddit string, limit int) ([]Post, error) {
 		return nil, fmt.Errorf("error decoding response: %v", err)
 	}
 
+	// Prepend "reddit.com" to each post's permalink
+	for i := range listingResp.Data.Children {
+		listingResp.Data.Children[i].Data.Permalink = "https://www.reddit.com" + listingResp.Data.Children[i].Data.Permalink
+	}
+
 	return listingResp.Data.Children, nil
-} 
+}

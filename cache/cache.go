@@ -10,7 +10,7 @@ import (
 const cacheDir = ".cache"
 
 type Cache struct {
-	Posts interface{} `json:"posts"`
+	Data any `json:"data"`
 }
 
 func EnsureCacheDir() error {
@@ -30,7 +30,7 @@ func WriteToCache(subreddit string, data interface{}) error {
 	}
 
 	cache := Cache{
-		Posts: data,
+		Data: data,
 	}
 
 	file, err := json.MarshalIndent(cache, "", "  ")
@@ -62,4 +62,4 @@ func ReadFromCache(subreddit string) (*Cache, error) {
 func CacheExists(subreddit string) bool {
 	_, err := os.Stat(GetCachePath(subreddit))
 	return err == nil
-} 
+}
