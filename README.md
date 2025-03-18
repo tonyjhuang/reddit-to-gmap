@@ -50,16 +50,16 @@ The tool provides several commands to help you extract and process Reddit posts:
 ```
 
 This command will:
-1. Fetch the specified number of posts from the given subreddit
+
+1. Fetch the specified number of posts from the given subreddit, currently caps at 100
 2. Process the posts to extract restaurant data
-3. Generate a CSV file with restaurant information in the `csv/` directory
-4. Use cached data if `--use-cache` is specified
+3. Generate a CSV file with restaurant information in the `out/` directory
 
 ## Flags
 
 - `--subreddit, -s`: The subreddit to fetch posts from (required)
 - `--num-posts, -n`: Number of posts to fetch (default: 10)
-- `--use-cache`: Use cached data instead of fetching from Reddit
+- `--use-cache`: Use cached data if available instead of fetching from Reddit
 
 ## Environment Variables
 
@@ -71,7 +71,9 @@ The following environment variables are required:
 - `GOOGLE_MAPS_API_KEY`: Your Google API key for Maps and Places APIs
 
 You can set these either:
+
 1. In your shell:
+
    ```bash
    export REDDIT_CLIENT_ID="your_client_id"
    export REDDIT_CLIENT_SECRET="your_client_secret"
@@ -88,10 +90,10 @@ You can set these either:
 
 The tool generates several types of output files:
 
-- `cache/*.json`: Raw Reddit posts and processed restaurant data
-- `csv/*.csv`: CSV files containing restaurant information
-- `maps/*.json`: Processed restaurant data with Google Maps links
-
+- `.cache/<subreddit>.json`: Raw Reddit posts fetched from Reddit API
+- `.cache/<subreddit>_restaurants.json`: Parsed restaurant data via Gemini API
+- `.cache/<subreddit>_full_restaurants.json`: Parsed restaurant data augmented with data from Google Maps API
+- `out/<subreddit>.csv`: CSV files containing formatted data meant for ingestion into Google Maps
 
 ## Debug Commands
 
@@ -104,9 +106,9 @@ These commands are primarily for development and debugging purposes:
 ```
 
 This command will:
+
 1. Fetch the specified number of posts from the given subreddit
-2. Save them to a JSON file in the `cache/` directory
-3. Use cached data if `--use-cache` is specified
+2. Save them to a JSON file in the `.cache/` directory
 
 #### Debug: Export Basic Restaurant Data
 
@@ -115,10 +117,10 @@ This command will:
 ```
 
 This command will:
+
 1. Fetch the specified number of posts from the given subreddit
 2. Use Google's Gemini AI to extract structured restaurant data from the posts
-3. Save the restaurant data to a JSON file in the `cache/` directory
-4. Use cached data if `--use-cache` is specified
+3. Save the restaurant data to a JSON file in the `.cache/` directory
 
 #### Debug: Export Full Restaurant Data with Maps Links
 
@@ -127,8 +129,8 @@ This command will:
 ```
 
 This command will:
+
 1. Fetch the specified number of posts from the given subreddit
 2. Use Google's Gemini AI to extract structured restaurant data
 3. Canonicalize restaurant names and generate Google Maps links
-4. Save the complete data to a JSON file in the `cache/` directory
-5. Use cached data if `--use-cache` is specified
+4. Save the complete data to a JSON file in the `.cache/` directory
