@@ -29,35 +29,35 @@ var rootCmd = &cobra.Command{
 }
 
 var exportRedditCmd = &cobra.Command{
-	Use:   "export-reddit",
-	Short: "Export posts from a subreddit to a local cache",
+	Use:   "debug:export-reddit",
+	Short: "Debug: Export top posts from a subreddit to a local cache",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_, err := exportReddit(subreddit, numPosts, useCache)
 		return err
 	},
 }
 
-var exportFullRestaurantDataCmd = &cobra.Command{
-	Use:   "export-full-restaurant-data",
-	Short: "Export restaurant data with canonicalized Google Maps links",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		_, err := exportFullRestaurantData(subreddit, numPosts, useCache)
-		return err
-	},
-}
-
 var exportRestaurantDataCmd = &cobra.Command{
-	Use:   "export-restaurant-data",
-	Short: "Export restaurant data from Reddit posts using Gemini",
+	Use:   "debug:export-restaurant-data",
+	Short: "Debug: Parse Reddit posts into structured restaurant data",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_, err := exportRestaurantData(subreddit, numPosts, useCache)
 		return err
 	},
 }
 
-var exportToCSVCmd = &cobra.Command{
-	Use:   "export-to-csv",
-	Short: "Export restaurant data to a CSV file",
+var exportFullRestaurantDataCmd = &cobra.Command{
+	Use:   "debug:export-full-restaurant-data",
+	Short: "Debug: Pull canonical restaurant data from Google Maps API",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		_, err := exportFullRestaurantData(subreddit, numPosts, useCache)
+		return err
+	},
+}
+
+var generateTopPostGoogleMapCSVCmd = &cobra.Command{
+	Use:   "generate-top-post-google-map-csv",
+	Short: "Generate a CSV file from top Reddit posts for importing into a custom Google Map",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return exportToCSV(subreddit, numPosts, useCache)
 	},
@@ -67,17 +67,17 @@ func init() {
 	rootCmd.AddCommand(exportRedditCmd)
 	rootCmd.AddCommand(exportRestaurantDataCmd)
 	rootCmd.AddCommand(exportFullRestaurantDataCmd)
-	rootCmd.AddCommand(exportToCSVCmd)
+	rootCmd.AddCommand(generateTopPostGoogleMapCSVCmd)
 
 	// Add flags to all commands
-	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd, exportToCSVCmd} {
+	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd, generateTopPostGoogleMapCSVCmd} {
 		cmd.Flags().StringVarP(&subreddit, "subreddit", "s", "", "Subreddit to fetch posts from (required)")
 		cmd.Flags().IntVarP(&numPosts, "num-posts", "n", 10, "Number of posts to fetch")
 		cmd.MarkFlagRequired("subreddit")
 	}
 
 	// Add use-cache flag to export commands
-	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd, exportToCSVCmd} {
+	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd, generateTopPostGoogleMapCSVCmd} {
 		cmd.Flags().BoolVar(&useCache, "use-cache", true, "Whether to use cached data if available")
 	}
 }
