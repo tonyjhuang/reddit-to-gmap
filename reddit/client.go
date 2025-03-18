@@ -95,7 +95,7 @@ func (c *Client) GetPosts(subreddit string, limit int) ([]Post, error) {
 		}
 	}
 
-	url := fmt.Sprintf("%s/r/%s/hot?limit=%d", baseURL, subreddit, limit)
+	url := fmt.Sprintf("%s/r/%s/top?limit=%d&t=month", baseURL, subreddit, limit)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %v", err)

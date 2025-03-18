@@ -89,6 +89,12 @@ func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Res
 	place := resp.Places[0]
 	placeID := strings.TrimPrefix(place.Name, "places/")
 
+	if place.UserRatingCount == nil {
+		fmt.Printf("No user rating count found for %s\n", restaurant.Name)
+		fmt.Printf("Place: %+v\n", place)
+		return nil, nil
+	}
+
 	// Create the new Restaurant struct with all the data
 	result := &Restaurant{
 		Name:         restaurant.Name,

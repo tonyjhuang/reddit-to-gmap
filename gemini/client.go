@@ -81,11 +81,19 @@ func (c *Client) ToRestaurantData(ctx context.Context, posts []reddit.Post) ([]R
 	}
 
 	prompt := fmt.Sprintf(`
+Parse this JSON into a structured output.
+
 Each input object represents a Reddit post with title, description (selftext), etc., from a food subreddit. For each Reddit post that corresponds to a single restaurant review, transform it into a corresponding entry in the output.
 
-A post is considered a restaurant review if the title mentions a specific restaurant name and the selftext contains details about the dining experience (e.g., food descriptions, reviews, prices). If the title contains the word 'review', 'recommendation', or 'ate at', consider it a restaurant review.
+A post is considered a restaurant review if all of the following conditions are met:
 
-Skip any input Reddit posts that either don't correspond to a restaurant review or that appear to mention a list of restaurants. If a post's restaurant association is unclear, skip it.
+Focus on a Single Restaurant: The selftext must primarily discuss a single restaurant.  This means the selftext should contain detailed descriptions of the dining experience at that specific restaurant (e.g., food descriptions, reviews, prices, ambiance).
+
+Exclusion of Lists/Aggregations: The selftext must not explicitly list or compare multiple restaurants, or present a summary of multiple dining experiences.  Phrases like "I ate at these places," "My favorite restaurants," "Here's a list," or numbered/bulleted lists of restaurants are strong indicators of an aggregation and should be excluded.
+
+Keywords (Optional, but helpful): The title or selftext may contain keywords like "review," "recommendation," "ate at," or similar phrases that indicate a review.  However, the presence of these keywords alone is not sufficient; the other conditions must also be met.
+
+Skip any input Reddit posts that do not meet all of the above criteria. If a post's restaurant association or focus is unclear, or if it appears to be an aggregation or list, skip it.
 
 Input posts:
 %s`, string(postsJSON))

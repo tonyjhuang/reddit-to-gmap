@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/tonyjhuang/reddit-to-gmap/cache"
@@ -236,6 +237,8 @@ func exportFullRestaurantData(subreddit string, numPosts int, useCache bool) ([]
 		if result != nil {
 			fullRestaurants = append(fullRestaurants, *result)
 		}
+		// Add 2 second delay between API calls
+		time.Sleep(2 * time.Second)
 	}
 
 	// Cache the results
