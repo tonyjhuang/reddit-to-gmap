@@ -51,7 +51,7 @@ The tool provides several commands to help you extract and process Reddit posts:
 
 This command will:
 
-1. Fetch the specified number of posts from the given subreddit, currently caps at 100
+1. Fetch the specified number of posts from the given subreddit
 2. Process the posts to extract restaurant data
 3. Generate a CSV file with restaurant information in the `out/` directory
 

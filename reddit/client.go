@@ -43,6 +43,9 @@ type Post struct {
 type ListingResponse struct {
 	Data struct {
 		Children []Post `json:"children"`
+		After    string `json:"after"`  // Fullname of the last item in the current listing
+		Before   string `json:"before"` // Fullname of the first item in the current listing
+		Count    int    `json:"count"`  // Number of items already seen in this listing
 	} `json:"data"`
 }
 
@@ -88,17 +91,15 @@ func (c *Client) getToken() error {
 	return nil
 }
 
-func (c *Client) GetPosts(subreddit string, limit int) ([]Post, error) {
-	if c.token == "" {
-		if err := c.getToken(); err != nil {
-			return nil, err
-		}
+func (c *Client) fetchPostsPage(subreddit string, limit int, after string, count int) ([]Post, string, error) {
+	url := fmt.Sprintf("%s/r/%s/top?limit=%d&t=month", baseURL, subreddit, limit)
+	if after != "" {
+		url += fmt.Sprintf("&after=%s&count=%d", after, count)
 	}
 
-	url := fmt.Sprintf("%s/r/%s/top?limit=%d&t=month", baseURL, subreddit, limit)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error creating request: %v", err)
+		return nil, "", fmt.Errorf("error creating request: %v", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.token))
@@ -106,18 +107,18 @@ func (c *Client) GetPosts(subreddit string, limit int) ([]Post, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error getting posts: %v", err)
+		return nil, "", fmt.Errorf("error getting posts: %v", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error reading response: %v", err)
+		return nil, "", fmt.Errorf("error reading response: %v", err)
 	}
 
 	var listingResp ListingResponse
 	if err := json.Unmarshal(body, &listingResp); err != nil {
-		return nil, fmt.Errorf("error decoding response: %v", err)
+		return nil, "", fmt.Errorf("error decoding response: %v", err)
 	}
 
 	// Prepend "reddit.com" to each post's permalink
@@ -125,5 +126,42 @@ func (c *Client) GetPosts(subreddit string, limit int) ([]Post, error) {
 		listingResp.Data.Children[i].Data.Permalink = "https://www.reddit.com" + listingResp.Data.Children[i].Data.Permalink
 	}
 
-	return listingResp.Data.Children, nil
+	return listingResp.Data.Children, listingResp.Data.After, nil
+}
+
+func (c *Client) GetPosts(subreddit string, limit int) ([]Post, error) {
+	if c.token == "" {
+		if err := c.getToken(); err != nil {
+			return nil, err
+		}
+	}
+
+	const maxLimitPerRequest = 100
+	var allPosts []Post
+	var after string
+	var count int
+
+	for len(allPosts) < limit {
+		// Calculate how many posts to request in this iteration
+		remainingLimit := limit - len(allPosts)
+		if remainingLimit > maxLimitPerRequest {
+			remainingLimit = maxLimitPerRequest
+		}
+
+		posts, nextAfter, err := c.fetchPostsPage(subreddit, remainingLimit, after, count)
+		if err != nil {
+			return nil, err
+		}
+
+		allPosts = append(allPosts, posts...)
+		count += len(posts)
+
+		// If there are no more posts to fetch, break the loop
+		if nextAfter == "" {
+			break
+		}
+		after = nextAfter
+	}
+
+	return allPosts, nil
 }
