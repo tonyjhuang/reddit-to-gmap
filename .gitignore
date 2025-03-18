@@ -1,0 +1,24 @@
+# Binary
+reddit-to-gmap
+
+# Cache directory
+cache/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Environment variables
+.env
+.env.local 
