@@ -19,6 +19,7 @@ type GoogleMapsData struct {
 	Rating          float64 `json:"rating"`
 	UserRatingCount int     `json:"user_rating_count"`
 	GoogleMapsUrl   string  `json:"google_maps_url"`
+	Type            string  `json:"type"`
 }
 
 type Restaurant struct {
@@ -100,6 +101,7 @@ func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Res
 			Rating:          float64(place.Rating),
 			UserRatingCount: int(*place.UserRatingCount),
 			GoogleMapsUrl:   fmt.Sprintf("https://www.google.com/maps/place/?q=place_id:%s", placeID),
+			Type:            place.PrimaryTypeDisplayName.Text,
 		},
 	}
 
