@@ -2,7 +2,7 @@
 reddit-to-gmap
 
 # Cache directory
-cache/
+.cache/
 
 # IDE specific files
 .idea/
