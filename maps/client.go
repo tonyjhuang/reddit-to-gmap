@@ -13,6 +13,22 @@ import (
 	"google.golang.org/api/option"
 )
 
+type GoogleMapsData struct {
+	Latitude        float64 `json:"latitude"`
+	Longitude       float64 `json:"longitude"`
+	Rating          float64 `json:"rating"`
+	UserRatingCount int     `json:"user_rating_count"`
+	GoogleMapsUrl   string  `json:"google_maps_url"`
+}
+
+type Restaurant struct {
+	Name           string         `json:"name"`
+	Upvotes        int            `json:"upvotes"`
+	RedditUrl      string         `json:"reddit_url"`
+	Neighborhood   string         `json:"neighborhood,omitempty"`
+	GoogleMapsData GoogleMapsData `json:"google_maps_data"`
+}
+
 type Client struct {
 	client *places.Client
 }
@@ -40,8 +56,8 @@ func (c *Client) Close() {
 // FetchGoogleMapsLink processes a restaurant to either canonicalize its existing Google Maps link
 // or search for a new one if none exists. For searches, it uses the restaurant name and neighborhood
 // (if available) to find the most relevant match in NYC.
-func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Restaurant) error {
-	fmt.Printf("Fetching Google Maps link for %s\n", restaurant.Name)
+func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Restaurant) (*Restaurant, error) {
+	fmt.Printf("Fetching Google Maps data for %s\n", restaurant.Name)
 
 	// Build search query with restaurant name and location context
 	query := restaurant.Name
@@ -60,16 +76,32 @@ func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Res
 
 	resp, err := c.client.SearchText(ctx, req)
 	if err != nil {
-		return fmt.Errorf("failed to search for place: %v", err)
+		return nil, fmt.Errorf("failed to search for place: %v", err)
 	}
 
 	if len(resp.Places) == 0 {
 		fmt.Printf("No results found for %s: %s\n", restaurant.Name, query)
-		return nil // No results found, leave GoogleMapsLink empty
+		return nil, nil // No results found
 	}
 
 	// Get the first result's place ID and format as a Google Maps link
-	placeID := strings.TrimPrefix(resp.Places[0].Name, "places/")
-	restaurant.GoogleMapsUrl = fmt.Sprintf("https://www.google.com/maps/place/?q=place_id:%s", placeID)
-	return nil
+	place := resp.Places[0]
+	placeID := strings.TrimPrefix(place.Name, "places/")
+
+	// Create the new Restaurant struct with all the data
+	result := &Restaurant{
+		Name:         restaurant.Name,
+		Upvotes:      restaurant.Upvotes,
+		RedditUrl:    restaurant.RedditUrl,
+		Neighborhood: restaurant.Neighborhood,
+		GoogleMapsData: GoogleMapsData{
+			Latitude:        place.Location.Latitude,
+			Longitude:       place.Location.Longitude,
+			Rating:          float64(place.Rating),
+			UserRatingCount: int(*place.UserRatingCount),
+			GoogleMapsUrl:   fmt.Sprintf("https://www.google.com/maps/place/?q=place_id:%s", placeID),
+		},
+	}
+
+	return result, nil
 }

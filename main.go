@@ -176,7 +176,7 @@ func exportRestaurantData(subreddit string, numPosts int, useCache bool) ([]gemi
 
 // exportFullRestaurantData processes Reddit posts into restaurant data with canonicalized Google Maps links.
 // Returns the processed restaurant data.
-func exportFullRestaurantData(subreddit string, numPosts int, useCache bool) ([]gemini.Restaurant, error) {
+func exportFullRestaurantData(subreddit string, numPosts int, useCache bool) ([]maps.Restaurant, error) {
 	// Check if we already have processed full restaurant data in cache
 	fullRestaurantCacheKey := subreddit + "_full_restaurants"
 	if useCache && cache.CacheExists(fullRestaurantCacheKey) {
@@ -185,8 +185,8 @@ func exportFullRestaurantData(subreddit string, numPosts int, useCache bool) ([]
 			return nil, fmt.Errorf("error reading from cache: %v", err)
 		}
 
-		// Convert cached data back to []gemini.Restaurant using JSON marshaling/unmarshaling
-		var restaurants []gemini.Restaurant
+		// Convert cached data back to []maps.Restaurant using JSON marshaling/unmarshaling
+		var restaurants []maps.Restaurant
 		jsonData, err := json.Marshal(cacheData.Data)
 		if err != nil {
 			return nil, fmt.Errorf("error marshaling cache data: %v", err)
@@ -215,18 +215,23 @@ func exportFullRestaurantData(subreddit string, numPosts int, useCache bool) ([]
 	defer mapsClient.Close()
 
 	// Process each restaurant to add/canonicalize Google Maps links
-	for i := range restaurantData {
-		if err := mapsClient.FetchGoogleMapsLink(ctx, &restaurantData[i]); err != nil {
-			fmt.Printf("Warning: error fetching Maps link for %s: %v\n", restaurantData[i].Name, err)
+	var fullRestaurants []maps.Restaurant
+	for _, restaurant := range restaurantData {
+		result, err := mapsClient.FetchGoogleMapsLink(ctx, &restaurant)
+		if err != nil {
+			fmt.Printf("Warning: error fetching Maps link for %s: %v\n", restaurant.Name, err)
 			continue
+		}
+		if result != nil {
+			fullRestaurants = append(fullRestaurants, *result)
 		}
 	}
 
 	// Cache the results
-	if err := cache.WriteToCache(fullRestaurantCacheKey, restaurantData); err != nil {
+	if err := cache.WriteToCache(fullRestaurantCacheKey, fullRestaurants); err != nil {
 		return nil, fmt.Errorf("error writing to cache: %v", err)
 	}
 
-	fmt.Printf("Successfully exported %d restaurants with Maps links from r/%s\n", len(restaurantData), subreddit)
-	return restaurantData, nil
+	fmt.Printf("Successfully exported %d restaurants with Maps links from r/%s\n", len(fullRestaurants), subreddit)
+	return fullRestaurants, nil
 }
