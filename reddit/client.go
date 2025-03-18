@@ -35,6 +35,8 @@ type Post struct {
 		Title     string `json:"title"`
 		URL       string `json:"url"`
 		Permalink string `json:"permalink"`
+		Selftext  string `json:"selftext"`  // Description/body of the post
+		Score     int    `json:"score"`     // Number of upvotes
 		// Add more fields as needed
 	} `json:"data"`
 }

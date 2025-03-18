@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/tonyjhuang/reddit-to-gmap/cache"
+	"github.com/tonyjhuang/reddit-to-gmap/gemini"
 	"github.com/tonyjhuang/reddit-to-gmap/reddit"
 )
 
@@ -36,12 +38,21 @@ var printGmapLinksCmd = &cobra.Command{
 	},
 }
 
+var exportRestaurantDataCmd = &cobra.Command{
+	Use:   "export-restaurant-data",
+	Short: "Export restaurant data from Reddit posts using Gemini",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return exportRestaurantData(subreddit, numPosts)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(exportRedditCmd)
 	rootCmd.AddCommand(printGmapLinksCmd)
+	rootCmd.AddCommand(exportRestaurantDataCmd)
 
-	// Add flags to both commands
-	for _, cmd := range []*cobra.Command{exportRedditCmd, printGmapLinksCmd} {
+	// Add flags to all commands
+	for _, cmd := range []*cobra.Command{exportRedditCmd, printGmapLinksCmd, exportRestaurantDataCmd} {
 		cmd.Flags().StringVarP(&subreddit, "subreddit", "s", "", "Subreddit to fetch posts from (required)")
 		cmd.Flags().IntVarP(&numPosts, "num-posts", "n", 10, "Number of posts to fetch")
 		cmd.MarkFlagRequired("subreddit")
@@ -79,6 +90,7 @@ func printGmapLinks(subreddit string, numPosts int) error {
 			return fmt.Errorf("error reading from cache: %v", err)
 		}
 		posts = cacheData.Posts.([]reddit.Post)
+		fmt.Printf("Found cached %d posts for r/%s\n", len(posts), subreddit)
 	} else {
 		// If cache doesn't exist, fetch from Reddit
 		if err := exportReddit(subreddit, numPosts); err != nil {
@@ -95,4 +107,35 @@ func printGmapLinks(subreddit string, numPosts int) error {
 	fmt.Printf("Found %d posts from r/%s\n", len(posts), subreddit)
 	fmt.Println("Google Maps link generation not yet implemented")
 	return nil
-} 
+}
+
+func exportRestaurantData(subreddit string, numPosts int) error {
+	// First, get the Reddit posts
+	client := reddit.NewClient()
+	posts, err := client.GetPosts(subreddit, numPosts)
+	if err != nil {
+		return fmt.Errorf("error fetching posts: %v", err)
+	}
+
+	// Create a Gemini client
+	ctx := context.Background()
+	geminiClient, err := gemini.NewClient(ctx)
+	if err != nil {
+		return fmt.Errorf("error creating Gemini client: %v", err)
+	}
+	defer geminiClient.Close()
+
+	// Process the posts with Gemini
+	restaurantData, err := geminiClient.ToRestaurantData(ctx, posts)
+	if err != nil {
+		return fmt.Errorf("error processing posts with Gemini: %v", err)
+	}
+
+	// Cache the results
+	if err := cache.WriteToCache(subreddit+"_restaurants", restaurantData); err != nil {
+		return fmt.Errorf("error writing to cache: %v", err)
+	}
+
+	fmt.Printf("Successfully exported %d restaurants from r/%s\n", len(restaurantData.Restaurants), subreddit)
+	return nil
+}
