@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/spf13/cobra"
 	"github.com/tonyjhuang/reddit-to-gmap/cache"
+	"github.com/tonyjhuang/reddit-to-gmap/csv"
 	"github.com/tonyjhuang/reddit-to-gmap/gemini"
 	"github.com/tonyjhuang/reddit-to-gmap/maps"
 	"github.com/tonyjhuang/reddit-to-gmap/reddit"
@@ -52,20 +54,29 @@ var exportRestaurantDataCmd = &cobra.Command{
 	},
 }
 
+var exportToCSVCmd = &cobra.Command{
+	Use:   "export-to-csv",
+	Short: "Export restaurant data to a CSV file",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return exportToCSV(subreddit, numPosts, useCache)
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(exportRedditCmd)
 	rootCmd.AddCommand(exportRestaurantDataCmd)
 	rootCmd.AddCommand(exportFullRestaurantDataCmd)
+	rootCmd.AddCommand(exportToCSVCmd)
 
 	// Add flags to all commands
-	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd} {
+	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd, exportToCSVCmd} {
 		cmd.Flags().StringVarP(&subreddit, "subreddit", "s", "", "Subreddit to fetch posts from (required)")
 		cmd.Flags().IntVarP(&numPosts, "num-posts", "n", 10, "Number of posts to fetch")
 		cmd.MarkFlagRequired("subreddit")
 	}
 
 	// Add use-cache flag to export commands
-	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd} {
+	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd, exportToCSVCmd} {
 		cmd.Flags().BoolVar(&useCache, "use-cache", true, "Whether to use cached data if available")
 	}
 }
@@ -234,4 +245,50 @@ func exportFullRestaurantData(subreddit string, numPosts int, useCache bool) ([]
 
 	fmt.Printf("Successfully exported %d restaurants with Maps links from r/%s\n", len(fullRestaurants), subreddit)
 	return fullRestaurants, nil
+}
+
+// exportToCSV exports restaurant data to a CSV file
+func exportToCSV(subreddit string, numPosts int, useCache bool) error {
+	// Get the full restaurant data
+	restaurants, err := exportFullRestaurantData(subreddit, numPosts, useCache)
+	if err != nil {
+		return fmt.Errorf("error getting restaurant data: %v", err)
+	}
+
+	// Sort restaurants by upvotes in descending order
+	sort.Slice(restaurants, func(i, j int) bool {
+		return restaurants[i].Upvotes > restaurants[j].Upvotes
+	})
+
+	// Create CSV writer
+	writer, err := csv.NewWriter(fmt.Sprintf("%s.csv", subreddit))
+	if err != nil {
+		return fmt.Errorf("error creating CSV writer: %v", err)
+	}
+	defer writer.Close()
+
+	// Write header
+	header := []string{"Name", "Type", "Google Maps url", "Google Maps rating", "Reddit url", "Lat", "Lng"}
+	if err := writer.WriteHeader(header); err != nil {
+		return fmt.Errorf("error writing CSV header: %v", err)
+	}
+
+	// Write data rows
+	for i, restaurant := range restaurants {
+		row := []string{
+			fmt.Sprintf("%s (#%d, %d upvotes)", restaurant.Name, i+1, restaurant.Upvotes),
+			restaurant.GoogleMapsData.Type,
+			restaurant.GoogleMapsData.GoogleMapsUrl,
+			fmt.Sprintf("%.1f (%d reviews)", restaurant.GoogleMapsData.Rating, restaurant.GoogleMapsData.UserRatingCount),
+			restaurant.RedditUrl,
+			fmt.Sprintf("%.6f", restaurant.GoogleMapsData.Latitude),
+			fmt.Sprintf("%.6f", restaurant.GoogleMapsData.Longitude),
+		}
+		if err := writer.WriteRow(row); err != nil {
+			return fmt.Errorf("error writing CSV row: %v", err)
+		}
+	}
+
+	fmt.Printf("Successfully exported %d restaurants to %s\n", len(restaurants), writer.Path())
+	return nil
 }
