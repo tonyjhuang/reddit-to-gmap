@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 	"time"
 
@@ -89,165 +90,137 @@ func main() {
 	}
 }
 
-// exportReddit fetches Reddit posts and caches them. Returns the fetched posts.
-func exportReddit(subreddit string, numPosts int, useCache bool) ([]reddit.Post, error) {
-	var posts []reddit.Post
+// getCachedOrFetch is a generic helper function that handles caching logic for any type T
+func getCachedOrFetch[T any](cacheKey string, useCache bool, fetchFn func() (T, error)) (T, error) {
+	var result T
 
 	// Check cache first if enabled
-	if useCache && cache.CacheExists(subreddit) {
-		cacheData, err := cache.ReadFromCache(subreddit)
+	if useCache && cache.CacheExists(cacheKey) {
+		cacheData, err := cache.ReadFromCache(cacheKey)
 		if err != nil {
-			return nil, fmt.Errorf("error reading from cache: %v", err)
+			return result, fmt.Errorf("error reading from cache: %v", err)
 		}
 
-		// Convert cached data back to []reddit.Post using JSON marshaling/unmarshaling
+		// Convert cached data back to type T using JSON marshaling/unmarshaling
 		jsonData, err := json.Marshal(cacheData.Data)
 		if err != nil {
-			return nil, fmt.Errorf("error marshaling cache data: %v", err)
+			return result, fmt.Errorf("error marshaling cache data: %v", err)
 		}
 
-		if err := json.Unmarshal(jsonData, &posts); err != nil {
-			return nil, fmt.Errorf("error unmarshaling cache data to posts: %v", err)
+		if err := json.Unmarshal(jsonData, &result); err != nil {
+			return result, fmt.Errorf("error unmarshaling cache data: %v", err)
 		}
 
-		fmt.Printf("exportReddit: Found %d posts in cache for r/%s\n", len(posts), subreddit)
-		return posts, nil
+		fmt.Printf("Found %d items in cache for %s\n", reflect.ValueOf(result).Len(), cacheKey)
+		return result, nil
 	}
 
-	// Fetch fresh posts from Reddit
-	client := reddit.NewClient()
-	var err error
-	posts, err = client.GetPosts(subreddit, numPosts)
+	// Fetch fresh data
+	result, err := fetchFn()
 	if err != nil {
-		return nil, fmt.Errorf("error fetching posts: %v", err)
+		return result, err
 	}
 
-	// Cache the posts
-	if err := cache.WriteToCache(subreddit, posts); err != nil {
-		return nil, fmt.Errorf("error writing to cache: %v", err)
+	// Cache the result
+	if err := cache.WriteToCache(cacheKey, result); err != nil {
+		return result, fmt.Errorf("error writing to cache: %v", err)
 	}
 
-	fmt.Printf("Successfully exported %d posts from r/%s\n", len(posts), subreddit)
-	return posts, nil
+	return result, nil
+}
+
+// exportReddit fetches Reddit posts and caches them. Returns the fetched posts.
+func exportReddit(subreddit string, numPosts int, useCache bool) ([]reddit.Post, error) {
+	return getCachedOrFetch(
+		subreddit,
+		useCache,
+		func() ([]reddit.Post, error) {
+			client := reddit.NewClient()
+			posts, err := client.GetPosts(subreddit, numPosts)
+			if err != nil {
+				return nil, fmt.Errorf("error fetching posts: %v", err)
+			}
+			fmt.Printf("Successfully exported %d posts from r/%s\n", len(posts), subreddit)
+			return posts, nil
+		},
+	)
 }
 
 // exportRestaurantData processes Reddit posts into restaurant data and caches the results.
 // Returns the processed restaurant data.
 func exportRestaurantData(subreddit string, numPosts int, useCache bool) ([]gemini.Restaurant, error) {
-	// Check if we already have processed restaurant data in cache
 	restaurantCacheKey := subreddit + "_restaurants"
-	if useCache && cache.CacheExists(restaurantCacheKey) {
-		cacheData, err := cache.ReadFromCache(restaurantCacheKey)
-		if err != nil {
-			return nil, fmt.Errorf("error reading from cache: %v", err)
-		}
+	return getCachedOrFetch(
+		restaurantCacheKey,
+		useCache,
+		func() ([]gemini.Restaurant, error) {
+			// Get Reddit posts using exportReddit
+			posts, err := exportReddit(subreddit, numPosts, useCache)
+			if err != nil {
+				return nil, err
+			}
 
-		// Convert cached data back to []gemini.Restaurant using JSON marshaling/unmarshaling
-		var restaurants []gemini.Restaurant
-		jsonData, err := json.Marshal(cacheData.Data)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling cache data: %v", err)
-		}
+			// Create a Gemini client
+			ctx := context.Background()
+			geminiClient, err := gemini.NewClient(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("error creating Gemini client: %v", err)
+			}
+			defer geminiClient.Close()
 
-		if err := json.Unmarshal(jsonData, &restaurants); err != nil {
-			return nil, fmt.Errorf("exportRestaurantData: error unmarshaling cache data to restaurants: %v", err)
-		}
+			// Process the posts with Gemini
+			restaurantData, err := geminiClient.ToRestaurantData(ctx, posts)
+			if err != nil {
+				return nil, fmt.Errorf("error processing posts with Gemini: %v", err)
+			}
 
-		fmt.Printf("exportRestaurantData: Found %d restaurants in cache for r/%s\n", len(restaurants), subreddit)
-		return restaurants, nil
-	}
-
-	// Get Reddit posts using exportReddit
-	posts, err := exportReddit(subreddit, numPosts, useCache)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a Gemini client
-	ctx := context.Background()
-	geminiClient, err := gemini.NewClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error creating Gemini client: %v", err)
-	}
-	defer geminiClient.Close()
-
-	// Process the posts with Gemini
-	restaurantData, err := geminiClient.ToRestaurantData(ctx, posts)
-	if err != nil {
-		return nil, fmt.Errorf("error processing posts with Gemini: %v", err)
-	}
-
-	// Cache the results
-	if err := cache.WriteToCache(restaurantCacheKey, restaurantData); err != nil {
-		return nil, fmt.Errorf("error writing to cache: %v", err)
-	}
-
-	fmt.Printf("Successfully exported %d restaurants from r/%s\n", len(restaurantData), subreddit)
-	return restaurantData, nil
+			fmt.Printf("Successfully exported %d restaurants from r/%s\n", len(restaurantData), subreddit)
+			return restaurantData, nil
+		},
+	)
 }
 
 // exportFullRestaurantData processes Reddit posts into restaurant data with canonicalized Google Maps links.
 // Returns the processed restaurant data.
 func exportFullRestaurantData(subreddit string, numPosts int, useCache bool) ([]maps.Restaurant, error) {
-	// Check if we already have processed full restaurant data in cache
 	fullRestaurantCacheKey := subreddit + "_full_restaurants"
-	if useCache && cache.CacheExists(fullRestaurantCacheKey) {
-		cacheData, err := cache.ReadFromCache(fullRestaurantCacheKey)
-		if err != nil {
-			return nil, fmt.Errorf("error reading from cache: %v", err)
-		}
+	return getCachedOrFetch(
+		fullRestaurantCacheKey,
+		useCache,
+		func() ([]maps.Restaurant, error) {
+			// Get restaurant data using exportRestaurantData
+			restaurantData, err := exportRestaurantData(subreddit, numPosts, useCache)
+			if err != nil {
+				return nil, err
+			}
 
-		// Convert cached data back to []maps.Restaurant using JSON marshaling/unmarshaling
-		var restaurants []maps.Restaurant
-		jsonData, err := json.Marshal(cacheData.Data)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling cache data: %v", err)
-		}
+			// Create a Maps client for place ID lookups
+			ctx := context.Background()
+			mapsClient, err := maps.NewClient(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("error creating Maps client: %v", err)
+			}
+			defer mapsClient.Close()
 
-		if err := json.Unmarshal(jsonData, &restaurants); err != nil {
-			return nil, fmt.Errorf("exportFullRestaurantData: error unmarshaling cache data to restaurants: %v", err)
-		}
+			// Process each restaurant to add/canonicalize Google Maps links
+			var fullRestaurants []maps.Restaurant
+			for _, restaurant := range restaurantData {
+				result, err := mapsClient.FetchGoogleMapsLink(ctx, &restaurant)
+				if err != nil {
+					fmt.Printf("Warning: error fetching Maps link for %s: %v\n", restaurant.Name, err)
+					continue
+				}
+				if result != nil {
+					fullRestaurants = append(fullRestaurants, *result)
+				}
+				// Add 2 second delay between API calls
+				time.Sleep(2 * time.Second)
+			}
 
-		fmt.Printf("exportFullRestaurantData: Found %d restaurants in cache for r/%s\n", len(restaurants), subreddit)
-		return restaurants, nil
-	}
-
-	// Get restaurant data using exportRestaurantData
-	restaurantData, err := exportRestaurantData(subreddit, numPosts, useCache)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a Maps client for place ID lookups
-	ctx := context.Background()
-	mapsClient, err := maps.NewClient(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error creating Maps client: %v", err)
-	}
-	defer mapsClient.Close()
-
-	// Process each restaurant to add/canonicalize Google Maps links
-	var fullRestaurants []maps.Restaurant
-	for _, restaurant := range restaurantData {
-		result, err := mapsClient.FetchGoogleMapsLink(ctx, &restaurant)
-		if err != nil {
-			fmt.Printf("Warning: error fetching Maps link for %s: %v\n", restaurant.Name, err)
-			continue
-		}
-		if result != nil {
-			fullRestaurants = append(fullRestaurants, *result)
-		}
-		// Add 2 second delay between API calls
-		time.Sleep(2 * time.Second)
-	}
-
-	// Cache the results
-	if err := cache.WriteToCache(fullRestaurantCacheKey, fullRestaurants); err != nil {
-		return nil, fmt.Errorf("error writing to cache: %v", err)
-	}
-
-	fmt.Printf("Successfully exported %d restaurants with Maps links from r/%s\n", len(fullRestaurants), subreddit)
-	return fullRestaurants, nil
+			fmt.Printf("Successfully exported %d restaurants with Maps data from r/%s\n", len(fullRestaurants), subreddit)
+			return fullRestaurants, nil
+		},
+	)
 }
 
 // exportToCSV exports restaurant data to a CSV file
