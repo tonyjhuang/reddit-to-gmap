@@ -56,8 +56,8 @@ func (c *Client) Close() {
 
 // FetchGoogleMapsLink processes a restaurant to either canonicalize its existing Google Maps link
 // or search for a new one if none exists. For searches, it uses the restaurant name and neighborhood
-// (if available) to find the most relevant match in NYC.
-func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Restaurant) (*Restaurant, error) {
+// (if available) to find the most relevant match.
+func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Restaurant, locationHint string) (*Restaurant, error) {
 	fmt.Printf("Fetching Google Maps data for %s\n", restaurant.Name)
 
 	// Build search query with restaurant name and location context
@@ -65,7 +65,7 @@ func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Res
 	if restaurant.Neighborhood != "" {
 		query = fmt.Sprintf("%s %s", query, restaurant.Neighborhood)
 	}
-	query = fmt.Sprintf("%s NYC", query)
+	query = fmt.Sprintf("%s %s", query, locationHint)
 
 	// Search for the place using Places API Text Search
 	req := &placespb.SearchTextRequest{

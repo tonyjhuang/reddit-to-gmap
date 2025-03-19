@@ -18,9 +18,11 @@ import (
 )
 
 var (
-	subreddit string
-	numPosts  int
-	useCache  bool
+	subreddit     string
+	numPosts      int
+	useCache      bool
+	timeRange     string
+	mapsQueryHint string
 )
 
 var rootCmd = &cobra.Command{
@@ -74,6 +76,8 @@ func init() {
 	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd, generateTopPostGoogleMapCSVCmd} {
 		cmd.Flags().StringVarP(&subreddit, "subreddit", "s", "", "Subreddit to fetch posts from (required)")
 		cmd.Flags().IntVarP(&numPosts, "num-posts", "n", 10, "Number of posts to fetch")
+		cmd.Flags().StringVarP(&timeRange, "time-range", "t", "month", "Time range for posts (hour, day, week, month, year, all)")
+		cmd.Flags().StringVarP(&mapsQueryHint, "maps-query-hint", "l", "", "Location hint for Google Maps queries (e.g. 'NYC', 'San Francisco')")
 		cmd.MarkFlagRequired("subreddit")
 	}
 
@@ -136,11 +140,11 @@ func exportReddit(subreddit string, numPosts int, useCache bool) ([]reddit.Post,
 		useCache,
 		func() ([]reddit.Post, error) {
 			client := reddit.NewClient()
-			posts, err := client.GetPosts(subreddit, numPosts)
+			posts, err := client.GetPosts(subreddit, numPosts, timeRange)
 			if err != nil {
 				return nil, fmt.Errorf("error fetching posts: %v", err)
 			}
-			fmt.Printf("Successfully exported %d posts from r/%s\n", len(posts), subreddit)
+			fmt.Printf("Successfully exported %d posts from r/%s (time range: %s)\n", len(posts), subreddit, timeRange)
 			return posts, nil
 		},
 	)
@@ -154,6 +158,7 @@ func exportRestaurantData(subreddit string, numPosts int, useCache bool) ([]gemi
 		restaurantCacheKey,
 		useCache,
 		func() ([]gemini.Restaurant, error) {
+			fmt.Printf("parsing reddit data with gemini...\n")
 			// Get Reddit posts using exportReddit
 			posts, err := exportReddit(subreddit, numPosts, useCache)
 			if err != nil {
@@ -168,14 +173,40 @@ func exportRestaurantData(subreddit string, numPosts int, useCache bool) ([]gemi
 			}
 			defer geminiClient.Close()
 
-			// Process the posts with Gemini
-			restaurantData, err := geminiClient.ToRestaurantData(ctx, posts)
-			if err != nil {
-				return nil, fmt.Errorf("error processing posts with Gemini: %v", err)
+			// Process posts in chunks of 100
+			const chunkSize = 100
+			var allRestaurants []gemini.Restaurant
+
+			for i := 0; i < len(posts); i += chunkSize {
+				end := i + chunkSize
+				if end > len(posts) {
+					end = len(posts)
+				}
+				chunk := posts[i:end]
+
+				// Process the chunk with Gemini
+				restaurantData, err := geminiClient.ToRestaurantData(ctx, chunk)
+				if err != nil {
+					return nil, fmt.Errorf("error processing posts chunk with Gemini: %v", err)
+				}
+
+				allRestaurants = append(allRestaurants, restaurantData...)
+				fmt.Printf("Processed chunk %d/%d posts\n", end, len(posts))
 			}
 
-			fmt.Printf("Successfully exported %d restaurants from r/%s\n", len(restaurantData), subreddit)
-			return restaurantData, nil
+			// Sort all restaurants by upvotes in descending order
+			sort.Slice(allRestaurants, func(i, j int) bool {
+				return allRestaurants[i].Upvotes > allRestaurants[j].Upvotes
+			})
+
+			// Take only the top numPosts restaurants
+			if len(allRestaurants) > numPosts {
+				fmt.Printf("received more restaurants than posts? %d > %d\n", len(allRestaurants), numPosts)
+				os.Exit(1)
+			}
+
+			fmt.Printf("Successfully exported %d restaurants from r/%s\n", len(allRestaurants), subreddit)
+			return allRestaurants, nil
 		},
 	)
 }
@@ -205,7 +236,7 @@ func exportFullRestaurantData(subreddit string, numPosts int, useCache bool) ([]
 			// Process each restaurant to add/canonicalize Google Maps links
 			var fullRestaurants []maps.Restaurant
 			for _, restaurant := range restaurantData {
-				result, err := mapsClient.FetchGoogleMapsLink(ctx, &restaurant)
+				result, err := mapsClient.FetchGoogleMapsLink(ctx, &restaurant, mapsQueryHint)
 				if err != nil {
 					fmt.Printf("Warning: error fetching Maps link for %s: %v\n", restaurant.Name, err)
 					continue
@@ -236,8 +267,12 @@ func exportToCSV(subreddit string, numPosts int, useCache bool) error {
 		return restaurants[i].Upvotes > restaurants[j].Upvotes
 	})
 
+	// Create CSV filename with date and time range
+	currentDate := time.Now().Format("20060102")
+	filename := fmt.Sprintf("%s_%s_%s.csv", subreddit, currentDate, timeRange)
+
 	// Create CSV writer
-	writer, err := csv.NewWriter(fmt.Sprintf("%s.csv", subreddit))
+	writer, err := csv.NewWriter(filename)
 	if err != nil {
 		return fmt.Errorf("error creating CSV writer: %v", err)
 	}

@@ -91,8 +91,8 @@ func (c *Client) getToken() error {
 	return nil
 }
 
-func (c *Client) fetchPostsPage(subreddit string, limit int, after string, count int) ([]Post, string, error) {
-	url := fmt.Sprintf("%s/r/%s/top?limit=%d&t=month", baseURL, subreddit, limit)
+func (c *Client) fetchPostsPage(subreddit string, limit int, after string, count int, timeRange string) ([]Post, string, error) {
+	url := fmt.Sprintf("%s/r/%s/top?limit=%d&t=%s", baseURL, subreddit, limit, timeRange)
 	if after != "" {
 		url += fmt.Sprintf("&after=%s&count=%d", after, count)
 	}
@@ -129,7 +129,7 @@ func (c *Client) fetchPostsPage(subreddit string, limit int, after string, count
 	return listingResp.Data.Children, listingResp.Data.After, nil
 }
 
-func (c *Client) GetPosts(subreddit string, limit int) ([]Post, error) {
+func (c *Client) GetPosts(subreddit string, limit int, timeRange string) ([]Post, error) {
 	if c.token == "" {
 		if err := c.getToken(); err != nil {
 			return nil, err
@@ -148,7 +148,7 @@ func (c *Client) GetPosts(subreddit string, limit int) ([]Post, error) {
 			remainingLimit = maxLimitPerRequest
 		}
 
-		posts, nextAfter, err := c.fetchPostsPage(subreddit, remainingLimit, after, count)
+		posts, nextAfter, err := c.fetchPostsPage(subreddit, remainingLimit, after, count, timeRange)
 		if err != nil {
 			return nil, err
 		}
