@@ -4,9 +4,6 @@ reddit-to-gmap
 # Cache directory
 .cache/
 
-# Output directory
-out/
-
 # IDE specific files
 .idea/
 .vscode/

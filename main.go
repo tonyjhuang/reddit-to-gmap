@@ -199,16 +199,37 @@ func exportRestaurantData(subreddit string, numPosts int, useCache bool) ([]gemi
 				return allRestaurants[i].Upvotes > allRestaurants[j].Upvotes
 			})
 
-			// Take only the top numPosts restaurants
-			if len(allRestaurants) > numPosts {
-				fmt.Printf("received more restaurants than posts? %d > %d\n", len(allRestaurants), numPosts)
-				os.Exit(1)
-			}
+			var uniqueRestaurants = dedupeRestaurants(allRestaurants)
 
-			fmt.Printf("Successfully exported %d restaurants from r/%s\n", len(allRestaurants), subreddit)
-			return allRestaurants, nil
+			fmt.Printf("Successfully exported %d restaurants from r/%s\n", len(uniqueRestaurants), subreddit)
+			return uniqueRestaurants, nil
 		},
 	)
+}
+
+// dedupeRestaurants removes duplicate Restaurant entries based on the Name field.
+// It preserves the order of the first occurrence of each unique restaurant.
+// It returns a new slice containing only the unique restaurants.
+func dedupeRestaurants(restaurants []gemini.Restaurant) []gemini.Restaurant {
+	seen := make(map[string]struct{})
+
+	// Initialize a new slice to store the unique restaurants.
+	uniqueRestaurants := make([]gemini.Restaurant, 0, len(restaurants)/2) // Example capacity
+
+	for _, r := range restaurants {
+		// Check if we've already seen a restaurant with this name
+		if _, found := seen[r.Name]; !found {
+			// If this name hasn't been seen before:
+			// 1. Mark it as seen by adding it to the map.
+			seen[r.Name] = struct{}{}
+			// 2. Append the current restaurant to our result slice.
+			uniqueRestaurants = append(uniqueRestaurants, r)
+		}
+		// If the name was already 'found' in the 'seen' map, we simply skip
+		// this element, effectively dropping the duplicate.
+	}
+
+	return uniqueRestaurants
 }
 
 // exportFullRestaurantData processes Reddit posts into restaurant data with canonicalized Google Maps links.
