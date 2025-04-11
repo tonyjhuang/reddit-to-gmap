@@ -20,4 +20,3 @@ jobs:
         run: |
           go build
           ./reddit-to-gmap generate-top-post-google-map-csv --subreddit foodnyc --num-posts 250 --use-cache
-          ./reddit-to-gmap generate-top-post-google-map-csv --subreddit boston --num-posts 100 --use-cache
