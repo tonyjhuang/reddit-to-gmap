@@ -3,6 +3,7 @@ run-name: Github action triggered monthly generation of top resturant csv
 on:
   schedule:
     - cron: "0 0 1 * *" # runs at midnight on the 1st of every month
+  workflow_dispatch:
 jobs:
   Generate-Top-Restaurant-CSV:
     runs-on: ubuntu-latest
