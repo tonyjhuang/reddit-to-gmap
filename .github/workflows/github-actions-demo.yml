@@ -1,5 +1,7 @@
 name: Monthly Run
 run-name: Github action triggered monthly generation of top resturant csv
+permissions:
+  contents: write
 on:
   schedule:
     - cron: "0 0 1 * *" # runs at midnight on the 1st of every month
