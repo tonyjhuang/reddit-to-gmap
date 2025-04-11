@@ -118,7 +118,7 @@ func (c *Client) fetchPostsPage(subreddit string, limit int, after string, count
 
 	var listingResp ListingResponse
 	if err := json.Unmarshal(body, &listingResp); err != nil {
-		return nil, "", fmt.Errorf("error decoding response: %v", err)
+		return nil, "", fmt.Errorf("error decoding response: %v\nbody: %s", err, body)
 	}
 
 	// Prepend "reddit.com" to each post's permalink

@@ -1,0 +1,31 @@
+name: Monthly Run
+run-name: Github action triggered monthly generation of top resturant csv
+permissions:
+  contents: write
+on:
+  schedule:
+    - cron: "0 0 1 * *" # runs at midnight on the 1st of every month
+  workflow_dispatch:
+jobs:
+  Generate-Top-Restaurant-CSV:
+    runs-on: ubuntu-latest
+    steps:
+      - name: check out repository code
+        uses: actions/checkout@v4
+      - name: generate csv in root/out
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          go build
+          ./reddit-to-gmap generate-top-post-google-map-csv --subreddit foodnyc --num-posts 250
+      - name: commit CSV to main
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Add generated restaurant CSV [skip ci]"
+          file_pattern: "out/*.csv"
+          branch: main
+          commit_options: "--no-verify"
+          push_options: "--force"
