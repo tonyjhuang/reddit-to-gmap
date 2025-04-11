@@ -107,12 +107,12 @@ func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Res
 			Rating:          float64(place.Rating),
 			UserRatingCount: int(*place.UserRatingCount),
 			GoogleMapsUrl:   fmt.Sprintf("https://www.google.com/maps/search/?api=1&query=xyz&query_place_id=%s", placeID),
-			Type:            func() string {
-								if place.PrimaryTypeDisplayName != nil {
-									return place.PrimaryTypeDisplayName.Text
-								}
-								return ""
-							 }(),
+			Type: func() string {
+				if place.PrimaryTypeDisplayName != nil {
+					return place.PrimaryTypeDisplayName.Text
+				}
+				return ""
+			}(),
 		},
 	}
 
