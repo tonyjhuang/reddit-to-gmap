@@ -6,7 +6,6 @@ on:
   schedule:
     - cron: "0 0 1 * *" # runs at midnight on the 1st of every month
   workflow_dispatch:
-  pull_request:
 jobs:
   Generate-Top-Restaurant-CSV:
     runs-on: ubuntu-latest
