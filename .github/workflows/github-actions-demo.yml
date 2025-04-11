@@ -12,6 +12,11 @@ jobs:
       - name: check out repository code
         uses: actions/checkout@v4
       - name: generate csv in root/out
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          GOOGLE_GEMINI_API_KEY: ${{ secrets.GOOGLE_GEMINI_API_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           go build
           ./reddit-to-gmap generate-top-post-google-map-csv --subreddit foodnyc --num-posts 250 --use-cache
