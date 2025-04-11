@@ -21,7 +21,7 @@ jobs:
           GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           go build
-          ./reddit-to-gmap generate-top-post-google-map-csv --subreddit foodnyc --num-posts 250 --use-cache
+          ./reddit-to-gmap generate-top-post-google-map-csv --subreddit foodnyc --num-posts 250
       - name: commit CSV to main
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
