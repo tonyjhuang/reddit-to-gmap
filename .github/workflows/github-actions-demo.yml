@@ -1,0 +1,16 @@
+name: Monthly Run
+run-name: Github action triggered monthly generation of top resturant csv
+on:
+  schedule:
+    - cron: "0 0 1 * *" # runs at midnight on the 1st of every month
+jobs:
+  Generate-Top-Restaurant-CSV:
+    runs-on: ubuntu-latest
+    steps:
+      - name: check out repository code
+        uses: actions/checkout@v4
+      - name: generate csv in root/out
+        run: |
+          go build
+          ./reddit-to-gmap generate-top-post-google-map-csv --subreddit foodnyc --num-posts 250 --use-cache
+          ./reddit-to-gmap generate-top-post-google-map-csv --subreddit boston --num-posts 100 --use-cache
