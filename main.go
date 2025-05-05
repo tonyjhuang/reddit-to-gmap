@@ -23,6 +23,7 @@ var (
 	useCache      bool
 	timeRange     string
 	mapsQueryHint string
+	numOutput     int
 )
 
 var rootCmd = &cobra.Command{
@@ -85,6 +86,9 @@ func init() {
 	for _, cmd := range []*cobra.Command{exportRedditCmd, exportRestaurantDataCmd, exportFullRestaurantDataCmd, generateTopPostGoogleMapCSVCmd} {
 		cmd.Flags().BoolVar(&useCache, "use-cache", true, "Whether to use cached data if available")
 	}
+
+	// Add num-output flag to CSV generation command
+	generateTopPostGoogleMapCSVCmd.Flags().IntVarP(&numOutput, "num-output", "o", 0, "Maximum number of rows to write to the CSV (0 means no limit)")
 }
 
 func main() {
@@ -287,6 +291,11 @@ func exportToCSV(subreddit string, numPosts int, useCache bool) error {
 	sort.Slice(restaurants, func(i, j int) bool {
 		return restaurants[i].Upvotes > restaurants[j].Upvotes
 	})
+
+	// Apply numOutput limit if specified
+	if numOutput > 0 && len(restaurants) > numOutput {
+		restaurants = restaurants[:numOutput]
+	}
 
 	// Create CSV filename with date and time range
 	currentDate := time.Now().Format("20060102")

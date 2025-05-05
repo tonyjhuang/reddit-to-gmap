@@ -92,7 +92,7 @@ func (c *Client) getToken() error {
 }
 
 func (c *Client) fetchPostsPage(subreddit string, limit int, after string, count int, timeRange string) ([]Post, string, error) {
-	url := fmt.Sprintf("%s/r/%s/top?limit=%d&t=%s", baseURL, subreddit, limit, timeRange)
+	url := fmt.Sprintf("%s/r/%s/top.json?limit=%d&t=%s", baseURL, subreddit, limit, timeRange)
 	if after != "" {
 		url += fmt.Sprintf("&after=%s&count=%d", after, count)
 	}
