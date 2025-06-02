@@ -9,6 +9,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/caarlos0/env/v11"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"github.com/tonyjhuang/reddit-to-gmap/cache"
 	"github.com/tonyjhuang/reddit-to-gmap/csv"
@@ -25,6 +27,15 @@ var (
 	mapsQueryHint string
 	numOutput     int
 )
+
+type Config struct {
+	RedditClientID     string `env:"REDDIT_CLIENT_ID,required"`
+	RedditClientSecret string `env:"REDDIT_CLIENT_SECRET,required"`
+	GoogleMapsAPIKey   string `env:"GOOGLE_MAPS_API_KEY,required"`
+	GoogleGeminiAPIKey string `env:"GOOGLE_GEMINI_API_KEY,required"`
+}
+
+var cfg Config
 
 var rootCmd = &cobra.Command{
 	Use:   "reddit-to-gmap",
@@ -92,6 +103,17 @@ func init() {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		fmt.Printf("Error loading environment variables: %+v\n", err)
+		os.Exit(1)
+	}
+	cfg, err = env.ParseAs[Config]()
+	if err != nil {
+		fmt.Printf("Error parsing environment variables: %+v\n", err)
+		os.Exit(1)
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -143,7 +165,7 @@ func exportReddit(subreddit string, numPosts int, useCache bool) ([]reddit.Post,
 		subreddit,
 		useCache,
 		func() ([]reddit.Post, error) {
-			client := reddit.NewClient()
+			client := reddit.NewClient(cfg.RedditClientID, cfg.RedditClientSecret)
 			posts, err := client.GetPosts(subreddit, numPosts, timeRange)
 			if err != nil {
 				return nil, fmt.Errorf("error fetching posts: %v", err)
@@ -171,7 +193,7 @@ func exportRestaurantData(subreddit string, numPosts int, useCache bool) ([]gemi
 
 			// Create a Gemini client
 			ctx := context.Background()
-			geminiClient, err := gemini.NewClient(ctx)
+			geminiClient, err := gemini.NewClient(ctx, cfg.GoogleGeminiAPIKey)
 			if err != nil {
 				return nil, fmt.Errorf("error creating Gemini client: %v", err)
 			}
@@ -252,7 +274,7 @@ func exportFullRestaurantData(subreddit string, numPosts int, useCache bool) ([]
 
 			// Create a Maps client for place ID lookups
 			ctx := context.Background()
-			mapsClient, err := maps.NewClient(ctx)
+			mapsClient, err := maps.NewClient(ctx, cfg.GoogleMapsAPIKey)
 			if err != nil {
 				return nil, fmt.Errorf("error creating Maps client: %v", err)
 			}

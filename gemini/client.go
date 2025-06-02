@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/tonyjhuang/reddit-to-gmap/reddit"
@@ -24,8 +23,7 @@ type Client struct {
 	model  *genai.GenerativeModel
 }
 
-func NewClient(ctx context.Context) (*Client, error) {
-	apiKey := os.Getenv("GOOGLE_GEMINI_API_KEY")
+func NewClient(ctx context.Context, apiKey string) (*Client, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("GOOGLE_GEMINI_API_KEY environment variable is required")
 	}
@@ -35,7 +33,7 @@ func NewClient(ctx context.Context) (*Client, error) {
 		return nil, fmt.Errorf("failed to create Gemini client: %v", err)
 	}
 
-	model := client.GenerativeModel("gemini-2.0-flash-lite")
+	model := client.GenerativeModel("gemini-2.0-flash")
 
 	model.SetTemperature(0)
 	model.SetTopK(40)
@@ -112,7 +110,7 @@ Input posts:
 		Restaurants []Restaurant `json:"restaurants"`
 	}
 	if err := json.Unmarshal([]byte(resp.Candidates[0].Content.Parts[0].(genai.Text)), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v", err)
+		return nil, fmt.Errorf("failed to parse response: %v, %s", err, resp.Candidates[0].Content.Parts[0].(genai.Text))
 	}
 
 	return result.Restaurants, nil

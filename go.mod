@@ -4,8 +4,10 @@ go 1.24.1
 
 require (
 	cloud.google.com/go/maps v1.20.1
+	github.com/caarlos0/env/v11 v11.3.1
 	github.com/google/generative-ai-go v0.19.0
 	github.com/googleapis/gax-go/v2 v2.14.1
+	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.8.0
 	google.golang.org/api v0.224.0
 )

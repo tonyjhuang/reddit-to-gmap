@@ -3,7 +3,6 @@ package maps
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	places "cloud.google.com/go/maps/places/apiv1"
@@ -34,8 +33,7 @@ type Client struct {
 	client *places.Client
 }
 
-func NewClient(ctx context.Context) (*Client, error) {
-	apiKey := os.Getenv("GOOGLE_MAPS_API_KEY")
+func NewClient(ctx context.Context, apiKey string) (*Client, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("GOOGLE_MAPS_API_KEY environment variable is required")
 	}

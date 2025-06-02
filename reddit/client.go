@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 )
 
@@ -49,18 +48,11 @@ type ListingResponse struct {
 	} `json:"data"`
 }
 
-func getEnvVar(key, fallback string) string {
-	if value, exists := os.LookupEnv(key); exists {
-		return value
-	}
-	return fallback
-}
-
-func NewClient() *Client {
+func NewClient(clientID, clientSecret string) *Client {
 	return &Client{
 		httpClient:   &http.Client{},
-		clientID:     getEnvVar("REDDIT_CLIENT_ID", placeholderClientID),
-		clientSecret: getEnvVar("REDDIT_CLIENT_SECRET", placeholderClientSecret),
+		clientID:     clientID,
+		clientSecret: clientSecret,
 	}
 }
 
