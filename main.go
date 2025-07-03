@@ -103,10 +103,9 @@ func init() {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Printf("Error loading environment variables: %+v\n", err)
-		os.Exit(1)
+	var err error
+	if err = godotenv.Load(); err != nil {
+		fmt.Printf("Warning: Could not load .env file: %v (this is OK if environment variables are set directly)\n", err)
 	}
 	cfg, err = env.ParseAs[Config]()
 	if err != nil {
