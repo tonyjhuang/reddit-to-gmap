@@ -33,7 +33,7 @@ func NewClient(ctx context.Context, apiKey string) (*Client, error) {
 		return nil, fmt.Errorf("failed to create Gemini client: %v", err)
 	}
 
-	model := client.GenerativeModel("gemini-2.0-flash")
+	model := client.GenerativeModel("gemini-2.5-flash")
 
 	model.SetTemperature(0)
 	model.SetTopK(40)
