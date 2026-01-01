@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/generative-ai-go/genai"
 	"github.com/tonyjhuang/reddit-to-gmap/reddit"
-	"google.golang.org/api/option"
+	"google.golang.org/genai"
 )
 
 type Restaurant struct {
@@ -20,7 +19,8 @@ type Restaurant struct {
 
 type Client struct {
 	client *genai.Client
-	model  *genai.GenerativeModel
+	model  string
+	config *genai.GenerateContentConfig
 }
 
 func NewClient(ctx context.Context, apiKey string) (*Client, error) {
@@ -28,31 +28,36 @@ func NewClient(ctx context.Context, apiKey string) (*Client, error) {
 		return nil, fmt.Errorf("GOOGLE_GEMINI_API_KEY environment variable is required")
 	}
 
-	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
+	client, err := genai.NewClient(ctx, &genai.ClientConfig{
+		APIKey: apiKey,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Gemini client: %v", err)
 	}
 
-	model := client.GenerativeModel("gemini-2.5-flash")
-
-	model.SetTemperature(0)
-	model.SetTopK(40)
-	model.SetTopP(0.95)
-	model.SetMaxOutputTokens(8192)
-	model.ResponseMIMEType = "application/json"
-	model.ResponseSchema = &genai.Schema{
-		Type: genai.TypeObject,
-		Properties: map[string]*genai.Schema{
-			"restaurants": {
-				Type: genai.TypeArray,
-				Items: &genai.Schema{
-					Type:     genai.TypeObject,
-					Required: []string{"name", "upvotes", "reddit_url"},
-					Properties: map[string]*genai.Schema{
-						"name":         {Type: genai.TypeString},
-						"upvotes":      {Type: genai.TypeInteger},
-						"reddit_url":   {Type: genai.TypeString},
-						"neighborhood": {Type: genai.TypeString},
+	config := &genai.GenerateContentConfig{
+		Temperature:      genai.Ptr(float32(0)),
+		TopK:             genai.Ptr(float32(40)),
+		TopP:             genai.Ptr(float32(0.95)),
+		MaxOutputTokens:  8192,
+		ResponseMIMEType: "application/json",
+		ResponseSchema: &genai.Schema{
+			Type: genai.TypeObject,
+			Properties: map[string]*genai.Schema{
+				"restaurants": {
+					Type: genai.TypeArray,
+					Items: &genai.Schema{
+						Type:     genai.TypeObject,
+						Required: []string{"name", "upvotes", "reddit_url"},
+						Properties: map[string]*genai.Schema{
+							"name":         {Type: genai.TypeString},
+							"upvotes":      {Type: genai.TypeInteger},
+							"reddit_url":   {Type: genai.TypeString},
+							"neighborhood": {Type: genai.TypeString},
+							"google_maps_url": {
+								Type: genai.TypeString,
+							},
+						},
 					},
 				},
 			},
@@ -61,12 +66,13 @@ func NewClient(ctx context.Context, apiKey string) (*Client, error) {
 
 	return &Client{
 		client: client,
-		model:  model,
+		model:  "gemini-2.5-flash",
+		config: config,
 	}, nil
 }
 
 func (c *Client) Close() {
-	c.client.Close()
+	// google.golang.org/genai's client does not expose a Close method.
 }
 
 // ToRestaurantData processes Reddit posts and returns a slice of restaurants.
@@ -96,21 +102,26 @@ Skip any input Reddit posts that do not meet all of the above criteria. If a pos
 Input posts:
 %s`, string(postsJSON))
 
-	resp, err := c.model.GenerateContent(ctx, genai.Text(prompt))
+	resp, err := c.client.Models.GenerateContent(ctx, c.model, genai.Text(prompt), c.config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate content: %v", err)
 	}
 
-	if len(resp.Candidates) == 0 {
+	if len(resp.Candidates) == 0 || resp.Candidates[0].Content == nil || len(resp.Candidates[0].Content.Parts) == 0 {
 		return nil, fmt.Errorf("no response generated")
+	}
+
+	part := resp.Candidates[0].Content.Parts[0]
+	if part == nil || part.Text == "" {
+		return nil, fmt.Errorf("model returned an empty response")
 	}
 
 	// Parse the response into our temporary struct
 	var result struct {
 		Restaurants []Restaurant `json:"restaurants"`
 	}
-	if err := json.Unmarshal([]byte(resp.Candidates[0].Content.Parts[0].(genai.Text)), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %v, %s", err, resp.Candidates[0].Content.Parts[0].(genai.Text))
+	if err := json.Unmarshal([]byte(part.Text), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %v, %s", err, part.Text)
 	}
 
 	return result.Restaurants, nil
