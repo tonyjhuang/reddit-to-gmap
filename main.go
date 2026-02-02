@@ -338,7 +338,7 @@ func exportToCSV(subreddit string, numPosts int, useCache bool) error {
 	// Write data rows
 	for i, restaurant := range restaurants {
 		row := []string{
-			fmt.Sprintf("%s (#%d, %d upvotes)", restaurant.Name, i+1, restaurant.Upvotes),
+			fmt.Sprintf("%s (#%d, %d upvotes)", restaurant.GoogleMapsData.Name, i+1, restaurant.Upvotes),
 			restaurant.GoogleMapsData.Type,
 			restaurant.GoogleMapsData.GoogleMapsUrl,
 			fmt.Sprintf("%.1f (%d reviews)", restaurant.GoogleMapsData.Rating, restaurant.GoogleMapsData.UserRatingCount),

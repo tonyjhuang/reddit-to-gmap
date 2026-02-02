@@ -39,7 +39,6 @@ func NewClient(ctx context.Context, apiKey string) (*Client, error) {
 		Temperature:      genai.Ptr(float32(0)),
 		TopK:             genai.Ptr(float32(40)),
 		TopP:             genai.Ptr(float32(0.95)),
-		MaxOutputTokens:  8192,
 		ResponseMIMEType: "application/json",
 		ResponseSchema: &genai.Schema{
 			Type: genai.TypeObject,

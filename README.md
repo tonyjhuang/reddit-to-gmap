@@ -46,7 +46,7 @@ The tool provides several commands to help you extract and process Reddit posts:
 #### Generate Top Post Google Map CSV
 
 ```bash
-./reddit-to-gmap generate-top-post-google-map-csv --subreddit <subreddit> --num-posts <number> [--use-cache]
+./reddit-to-gmap generate-top-post-google-map-csv --subreddit <subreddit> --num-posts <number> --maps-query-hint <hint> [--use-cache]
 ```
 
 This command will:
@@ -60,6 +60,7 @@ This command will:
 - `--subreddit, -s`: The subreddit to fetch posts from (required)
 - `--num-posts, -n`: Number of posts to fetch (default: 10)
 - `--use-cache`: Use cached data if available instead of fetching from Reddit
+- `--maps-query-hint, -l`: Additional search text to pass to Google Maps when fetching restaurant data.
 
 ## Environment Variables
 

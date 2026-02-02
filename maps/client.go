@@ -13,6 +13,7 @@ import (
 )
 
 type GoogleMapsData struct {
+	Name            string  `json:"name"`
 	Latitude        float64 `json:"latitude"`
 	Longitude       float64 `json:"longitude"`
 	Rating          float64 `json:"rating"`
@@ -109,6 +110,7 @@ func (c *Client) FetchGoogleMapsLink(ctx context.Context, restaurant *gemini.Res
 		RedditUrl:    restaurant.RedditUrl,
 		Neighborhood: restaurant.Neighborhood,
 		GoogleMapsData: GoogleMapsData{
+			Name:            place.DisplayName.Text,
 			Latitude:        place.Location.Latitude,
 			Longitude:       place.Location.Longitude,
 			Rating:          float64(place.Rating),
